@@ -1,0 +1,33 @@
+# --- Core Flask & Web Serving ---
+Flask>=2.3,<3.1
+python-dotenv>=1.0.0
+Werkzeug>=2.3,<3.1
+waitress>=2.1
+Flask-WTF>=1.1
+
+# --- Background Tasks (Celery & Redis) ---
+celery>=5.3,<6.0 # Pinned major version
+redis>=4.5,<6.0
+
+# --- Video/Audio Download & Processing ---
+yt-dlp>=2023.11.16 # Use a recent version
+# ffmpeg (Install separately via system package manager or download)
+
+# --- AI/ML - Transcription (FasterWhisper) ---
+# Pin torch versions carefully based on FasterWhisper compatibility and your system (CPU/CUDA)
+# Check PyTorch website for appropriate versions if defaults cause issues: https://pytorch.org/get-started/locally/
+torch>=2.0,<2.3
+torchaudio>=2.0,<2.3
+# torchvision>=0.15,<0.18 # Often not strictly needed unless doing image tasks, keep if already working
+numpy<2.0 # Pin numpy before potential breaking changes
+faster-whisper>=1.0 # Use latest faster-whisper
+huggingface_hub>=0.17 # For model downloads (Used by FasterWhisper)
+
+# --- Video Editing ---
+moviepy>=1.0.3 # Add moviepy
+
+# --- AI - Gemini (Metadata Generation) ---
+google-generativeai>=0.5.0 # Add Gemini client library
+
+# --- Other Utilities ---
+# (Add pandas, etc. if used by future agents)

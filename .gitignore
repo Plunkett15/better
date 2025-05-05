@@ -1,0 +1,35 @@
+# Python virtual environment
+venv/
+*/venv/
+.venv/
+*/.venv/
+ENV/
+*/ENV/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Instance folder (contains secrets, logs, potentially DB)
+instance/
+/instance/ # More specific
+
+# Downloaded videos and generated clips (can get large)
+downloads/
+/downloads/
+processed_clips/
+/processed_clips/
+
+# Environment variables file
+.env
+
+# IDE/Editor specific files
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS generated files
+.DS_Store
+Thumbs.db

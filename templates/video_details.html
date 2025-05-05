@@ -1,0 +1,367 @@
+{# --- Start of File: templates/video_details.html --- #}
+{% extends "base.html" %}
+
+{% block title %}Details - {{ video.title | default('Video') }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .action-button-group button { margin-right: 0.5rem; margin-bottom: 0.5rem;}
+
+    /* Style for agent run list items (Kept) */
+    .agent-run-item {
+        border-bottom: 1px solid var(--bs-border-color-translucent);
+        padding-bottom: 0.5rem; margin-bottom: 0.5rem;
+    }
+     .agent-run-item:last-child { border-bottom: none; margin-bottom: 0; }
+     .agent-run-details { font-size: 0.9em; }
+
+    /* Styles for Clip Details */
+    .clip-list-item {
+        border-bottom: 1px solid var(--bs-border-color-translucent);
+        padding: 1rem 0;
+    }
+     .clip-list-item:last-child { border-bottom: none; padding-bottom: 0.5rem; }
+    .clip-details-section { font-size: 0.9em; margin-top: 0.75rem; padding-left: 1rem; border-left: 3px solid var(--bs-secondary-bg-subtle); }
+    .clip-metadata-title { font-weight: bold; }
+    .clip-transcript-segment { font-family: monospace; font-size: 0.85em; white-space: pre-wrap; margin-bottom: 0.2em; }
+    .clip-transcript-segment .timestamp { color: var(--bs-info); opacity: 0.8; margin-right: 0.5em; }
+    .clip-subsection-title { font-size: 0.95em; font-weight: 600; margin-bottom: 0.3rem; color: var(--bs-secondary-color); }
+
+    /* Batch cut spacing */
+    #batch-cut-forms .batch-cut-section { margin-bottom: 1.5rem; }
+
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="container mt-4">
+     {# --- Breadcrumbs & Header --- #}
+     <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Video Details (ID: {{ video.id }})</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+         <h1 class="h3 mb-0">Video Details</h1>
+         <div>
+             <a href="{{ url_for('video_details', video_id=video.id) }}" class="btn btn-sm btn-outline-secondary" title="Refresh Page"><i class="bi bi-arrow-clockwise"></i> Refresh</a>
+             <a href="{{ url_for('index') }}" class="btn btn-sm btn-secondary ms-2"><i class="bi bi-arrow-left"></i> Back to List</a>
+         </div>
+    </div>
+
+    {# --- Main Video Info Card --- #}
+    {% if video %}
+    <div class="card mb-4 shadow-sm">
+         <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0" title="{{ video.title | default('N/A') }}">
+                 <i class="bi bi-film me-2"></i>{{ video.title | default('N/A') | truncate(100) }}
+            </h5>
+            <span class="badge bg-secondary-subtle text-emphasis-secondary">ID: {{ video.id }}</span>
+         </div>
+         <ul class="list-group list-group-flush">
+             <li class="list-group-item"><strong><i class="bi bi-youtube me-2"></i>URL:</strong> <a href="{{ video.youtube_url }}" target="_blank" rel="noopener noreferrer">{{ video.youtube_url }}</a></li>
+             <li class="list-group-item"><strong>Resolution:</strong> {{ video.resolution | default('N/A') }}</li>
+             <li class="list-group-item"><strong>Processing Mode:</strong> <span class="badge bg-light text-dark">{{ video.processing_mode | default('auto') | title }}</span></li>
+             <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span><strong>Overall Status:</strong></span>
+                {# Use status derived from DB function/route logic #}
+                <span class="badge rounded-pill status-{{ video.overall_status_class }} p-2">{{ video.overall_status | default('Unknown') }}</span>
+             </li>
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span><strong>Current Step:</strong></span>
+                 <span class="processing-status badge bg-body-secondary text-body-secondary p-2" title="{{ video.processing_status | default('') }}">{{ video.processing_status | default('N/A') | truncate(35) }}</span>
+              </li>
+             <li class="list-group-item"><strong>Video File:</strong> <code>{{ video.file_path | default('N/A') }}</code></li>
+             {# Removed audio_path reference #}
+             {# <li class="list-group-item"><strong>Temp Audio File:</strong> <code>{{ video.audio_path | default('(Not Available / Cleaned Up)') }}</code></li> #}
+             <li class="list-group-item"><strong>Submitted:</strong> {{ video.created_at | datetimeformat }}</li>
+             <li class="list-group-item"><strong>Last Update:</strong> {{ video.updated_at | datetimeformat }}</li>
+             {# --- Error Display --- #}
+             {% if video.status == 'Error' or video.error_message %}
+             <li class="list-group-item" id="error-details">
+                <strong class="d-block mb-2 text-danger-emphasis"><i class="bi bi-exclamation-octagon-fill me-1"></i>Error Message:</strong>
+                <pre class="error-message">{{ video.error_message | default('No specific error message recorded.') }}</pre>
+             </li>
+             {% endif %}
+         </ul>
+    </div>
+
+    {# --- Regeneration & Agent Action Buttons --- #}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-gear-wide-connected"></i> Actions</h5>
+        </div>
+        <div class="card-body action-button-group">
+            <p class="card-text text-muted small mb-3">Trigger reprocessing steps. Tasks run in the background.</p>
+
+            <h6 class="card-subtitle mb-2 text-muted">Regeneration:</h6>
+            {# Only Reprocess Full remains relevant in the simplified agent structure #}
+            <button type="button" class="btn btn-sm btn-outline-danger action-button" data-action="reprocess_full" data-video-id="{{ video.id }}" title="Re-queue the processing pipeline (skipping download if file exists).">
+                <i class="bi bi-fast-forward-circle"></i> Re-Process (Skip Download)
+            </button>
+
+            {# Status Message Area #}
+            <div id="action-status-message" class="mt-3 small" style="min-height: 1.5em;"></div>
+        </div>
+    </div>
+
+
+    {# --- Analysis Results Accordion --- #}
+    <div class="accordion mb-4" id="analysisAccordion">
+
+        {# --- MODIFIED: Generated Clips List --- #}
+         <div class="accordion-item">
+             {# Count based on clips_detailed_data passed from backend #}
+             {% set clip_count = clips_detailed_data|length if clips_detailed_data is iterable else 0 %}
+             <h2 class="accordion-header" id="headingGeneratedClips">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGeneratedClips" aria-expanded="false" aria-controls="collapseGeneratedClips">
+                     <i class="bi bi-camera-reels me-2"></i> Generated Clips {% if clip_count > 0 %}({{ clip_count }}){% endif %}
+                 </button>
+             </h2>
+             <div id="collapseGeneratedClips" class="accordion-collapse collapse" aria-labelledby="headingGeneratedClips" data-bs-parent="#analysisAccordion">
+                 <div class="accordion-body">
+                      {% if clips_detailed_data %}
+                          <ul id="generated-clips-list" class="list-unstyled">
+                              {% for clip in clips_detailed_data %}
+                                 <li class="clip-list-item">
+                                     {# --- Clip Path and Link --- #}
+                                     <div class="d-flex justify-content-between align-items-center mb-2">
+                                         <span title="{{ clip.clip_path | default('N/A') }}">
+                                             <i class="bi bi-play-circle me-2"></i><strong>{{ clip.clip_path | basename | default('Unknown Clip') }}</strong>
+                                             <a href="{{ url_for('serve_clip', filename=(clip.clip_path | basename)) }}" target="_blank" class="ms-2 link-secondary" title="Open/Play Clip"><i class="bi bi-box-arrow-up-right"></i></a>
+                                         </span>
+                                         <span class="badge rounded-pill status-{{ clip.clip_status | lower | replace(' ', '-') if clip.clip_status else 'unknown' }} p-2">{{ clip.clip_status | default('Unknown') }}</span>
+                                     </div>
+                                     {# --- Clip Timings --- #}
+                                     <small class="text-muted ms-4 d-block mb-2">Time: {{ "%.2f"|format(clip.start_time | default(0)) }}s - {{ "%.2f"|format(clip.end_time | default(0)) }}s | Type: {{ clip.clip_type | default('N/A') | title }}</small>
+
+                                     {# --- Clip Error (if any) --- #}
+                                     {% if clip.clip_status == 'Failed' and clip.clip_error %}
+                                          <div class="ms-4 mb-2">
+                                             <pre class="error-message small">{{ clip.clip_error }}</pre>
+                                          </div>
+                                     {% endif %}
+
+                                     {# --- Collapsible Details: Metadata & Transcript --- #}
+                                     <div class="ms-4">
+                                         <button class="btn btn-sm btn-outline-secondary py-0 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#clipDetails{{ clip.clip_id }}" aria-expanded="false" aria-controls="clipDetails{{ clip.clip_id }}">
+                                             <i class="bi bi-info-circle"></i> Details
+                                         </button>
+                                         <div class="collapse mt-2" id="clipDetails{{ clip.clip_id }}">
+                                             <div class="clip-details-section">
+                                                 {# --- Metadata Section --- #}
+                                                 <div class="mb-3">
+                                                    <p class="clip-subsection-title mb-1">Metadata <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">{{ clip.metadata_status | default('N/A') }}</span></p>
+                                                    {% if clip.metadata_status == 'Completed' %}
+                                                        {% if clip.title %}<p class="mb-1"><strong class="clip-metadata-title">Title:</strong> {{ clip.title }}</p>{% endif %}
+                                                        {% if clip.description %}<p class="mb-1"><strong>Description:</strong> {{ clip.description }}</p>{% endif %}
+                                                        {% if clip.keywords %}<p class="mb-1"><strong>Keywords:</strong> {{ clip.keywords | join(', ') }}</p>{% endif %}
+                                                        {% if not clip.title and not clip.description and not clip.keywords %}
+                                                            <p class="text-muted fst-italic small mb-1">No metadata content generated.</p>
+                                                        {% endif %}
+                                                    {% elif clip.metadata_status == 'Failed' %}
+                                                        <p class="text-danger small mb-1"><i class="bi bi-exclamation-triangle"></i> Failed: {{ clip.metadata_error | default('Unknown reason') }}</p>
+                                                    {% elif clip.metadata_status == 'Pending' or clip.metadata_status == 'Processing' %}
+                                                         <p class="text-muted fst-italic small mb-1"><i class="bi bi-hourglass-split"></i> Metadata generation in progress...</p>
+                                                    {% else %}
+                                                         <p class="text-muted fst-italic small mb-1">Metadata not available.</p>
+                                                    {% endif %}
+                                                 </div>
+
+                                                 {# --- Transcript Section --- #}
+                                                 <div>
+                                                     <p class="clip-subsection-title mb-1">Transcript <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">{{ clip.transcript_status | default('N/A') }}</span></p>
+                                                      {% if clip.transcript_status == 'Completed' and clip.transcript and clip.transcript is iterable %}
+                                                         <div class="transcript-display" style="max-height: 200px; overflow-y: auto;">
+                                                         {% for seg in clip.transcript %}
+                                                             <div class="clip-transcript-segment">
+                                                                 <span class="timestamp">[{{ "%6.2f"|format(seg.start | default(0.0)) }}]</span>{{ seg.text | default('') | trim }}
+                                                             </div>
+                                                         {% else %}
+                                                              <p class="text-muted fst-italic small mb-1">Transcript is empty.</p>
+                                                         {% endfor %}
+                                                         </div>
+                                                      {% elif clip.transcript_status == 'Failed' %}
+                                                          <p class="text-danger small mb-1"><i class="bi bi-exclamation-triangle"></i> Failed: {{ clip.transcript_error | default('Unknown reason') }}</p>
+                                                      {% elif clip.transcript_status == 'Pending' or clip.transcript_status == 'Processing' %}
+                                                          <p class="text-muted fst-italic small mb-1"><i class="bi bi-hourglass-split"></i> Transcription in progress...</p>
+                                                      {% else %}
+                                                           <p class="text-muted fst-italic small mb-1">Transcript not available.</p>
+                                                      {% endif %}
+                                                 </div>
+                                             </div> {# End clip-details-section #}
+                                         </div> {# End collapse #}
+                                     </div> {# End button/collapse container #}
+                                 </li>
+                              {% endfor %} {# end clip loop #}
+                          </ul>
+                          <small class="d-block mt-2 text-body-secondary">Clips are served from the 'processed_clips' directory.</small>
+                      {% else %}
+                         <p class="text-center my-3 text-muted" id="no-clips-yet">No clips generated yet for this video.</p>
+                      {% endif %}
+                 </div>
+             </div>
+         </div>{# End Generated Clips Accordion Item #}
+
+
+        {# --- REMOVED: Raw Transcript Accordion Item --- #}
+        {# --- REMOVED: Polished Transcript Accordion Item --- #}
+        {# --- REMOVED: Q&A Exchanges & Summaries Accordion Item --- #}
+        {# --- REMOVED: Speaker Diarization Details Accordion Item --- #}
+
+
+         {# --- Agent Run Status History --- (Kept) #}
+        <div class="accordion-item">
+            {% set agent_run_count = agent_runs|length if agent_runs is iterable else 0 %}
+            <h2 class="accordion-header" id="headingAgentStatus">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAgentStatus" aria-expanded="false" aria-controls="collapseAgentStatus">
+                    <i class="bi bi-activity me-2"></i> Agent Run History {% if agent_run_count > 0 %}({{ agent_run_count }}){% endif %}
+                </button>
+            </h2>
+            <div id="collapseAgentStatus" class="accordion-collapse collapse" aria-labelledby="headingAgentStatus" data-bs-parent="#analysisAccordion">
+                <div class="accordion-body" style="max-height: 60vh; overflow-y: auto;">
+                    {% if agent_runs %}
+                        <ul class="list-group list-group-flush">
+                            {% for run in agent_runs %}
+                            <li class="list-group-item agent-run-item px-0 py-2">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">
+                                        {# Display agent type - downloader, batch_cut_dispatcher, manual_single_clip_creator etc. #}
+                                        <span class="badge bg-primary me-2">{{ run.agent_type | replace('_', ' ') | title }}</span>
+                                        {% if run.target_id %}<small class="text-muted fw-normal">Target: {{run.target_id}}</small>{% endif %}
+                                    </h6>
+                                    <small class="text-muted" title="{{ run.created_at }}">Run #{{run.id}} | {{ run.created_at | datetimeformat }}</small>
+                                </div>
+                                <div class="agent-run-details">
+                                    Status:
+                                    {% if run.status == 'Success' %}
+                                        <span class="badge bg-success-subtle text-success-emphasis">Success</span>
+                                        {% if run.result_preview %}<span class="ms-2 text-muted">- {{ run.result_preview | truncate(100) }}</span>{% endif %}
+                                    {% elif run.status == 'Failed' %}
+                                        <span class="badge bg-danger-subtle text-danger-emphasis">Failed</span>
+                                        {% if run.error_message %}<a href="#error-{{run.id}}" class="ms-2 text-danger" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="error-{{run.id}}" title="Show/Hide Error"><i class="bi bi-exclamation-triangle"></i> Error Details</a>{% endif %}
+                                    {% elif run.status == 'Running' %}
+                                        <span class="badge bg-info-subtle text-info-emphasis"><span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Running...</span>
+                                    {% else %} {# Pending #}
+                                         <span class="badge bg-secondary-subtle text-secondary-emphasis">Pending</span>
+                                    {% endif %}
+                                </div>
+                                {# Collapsible error message #}
+                                {% if run.status == 'Failed' and run.error_message %}
+                                <div class="collapse mt-2" id="error-{{run.id}}">
+                                    <pre class="error-message small">{{ run.error_message }}</pre>
+                                </div>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-center my-3 text-muted">No agent runs recorded for this video yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>{# End Agent Run Accordion Item #}
+
+    </div> {# End Accordion #}
+
+    {# --- Manual Single Clip Creation Section --- (Kept, but now dispatches task) #}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-scissors"></i> Manual Clip Creation</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small">Manually define and queue a task to create, edit, transcribe, and analyze a single clip.</p>
+            {# Form action still points to trigger_clip_creation, but backend dispatches task #}
+            <form class="clip-form manual-clip-form" method="POST" action="{{ url_for('trigger_clip_creation', video_id=video.id) }}" id="manual-clip-form">
+                 {{ csrf_token() }} {# CSRF token inside form #}
+                 <div class="row g-3 align-items-center">
+                     <div class="col-auto">
+                         <label for="manual_start_time" class="col-form-label">Start (s):</label>
+                     </div>
+                     <div class="col-auto">
+                         <input type="number" class="form-control form-control-sm clip-start-time" id="manual_start_time" name="start_time" value="0.0" step="0.01" required aria-label="Start time">
+                     </div>
+                     <div class="col-auto">
+                         <label for="manual_end_time" class="col-form-label">End (s):</label>
+                     </div>
+                      <div class="col-auto">
+                         <input type="number" class="form-control form-control-sm clip-end-time" id="manual_end_time" name="end_time" value="10.0" step="0.01" required aria-label="End time">
+                     </div>
+                     <div class="col-auto">
+                         <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-send"></i> Queue Manual Clip Task</button> {# Updated button text #}
+                     </div>
+                     <div class="col-auto">
+                         <span class="clip-status text-body-secondary small"></span> {# Status updated by JS #}
+                     </div>
+                 </div>
+                 <div class="clip-calculated-duration text-body-secondary mt-2" style="font-size: 0.8em;">Clip Duration: <span class="value">N/A</span>s</div>
+             </form>
+        </div>
+    </div>
+
+    {# --- MODIFIED: Manual Batch Cutting Section --- #}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-scissors"></i> Manual Batch Cutting</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small">Enter timestamps (e.g., 0:15, 1:23:45.5, 58.2) on separate lines or separated by commas/semicolons. The video will be cut into segments between these points (0 -> t1, t1 -> t2, ..., tn -> end). Specify intended format (Long or Short).</p>
+            {# Separate forms or sections for Long/Short #}
+            <div id="batch-cut-forms">
+                 <input type="hidden" id="batch-cut-video-id" value="{{ video.id }}"> {# Shared video ID #}
+
+                 {# Section for Long Clips #}
+                 <div class="batch-cut-section border p-3 rounded mb-3">
+                     <h6 class="text-muted">Long Format Clips (e.g., standard aspect ratio)</h6>
+                     <div class="mb-3">
+                         <label for="manual_timestamps_long" class="form-label">Cut Timestamps (Long):</label>
+                         <textarea class="form-control batch-timestamps-input" id="manual_timestamps_long" name="manual_timestamps_long" rows="4" placeholder="0:15
+1:23:45.5"></textarea>
+                     </div>
+                     <button type="button" class="btn btn-primary batch-cut-btn" data-clip-type="long" data-textarea-id="manual_timestamps_long"><i class="bi bi-play-fill"></i> Generate Long Batch Clips</button>
+                     <span class="batch-cut-status ms-3 text-body-secondary small" data-clip-type="long"></span>
+                 </div>
+
+                 {# Section for Short Clips #}
+                 <div class="batch-cut-section border p-3 rounded">
+                     <h6 class="text-muted">Short Format Clips (e.g., vertical aspect ratio)</h6>
+                     <div class="mb-3">
+                         <label for="manual_timestamps_short" class="form-label">Cut Timestamps (Short):</label>
+                         <textarea class="form-control batch-timestamps-input" id="manual_timestamps_short" name="manual_timestamps_short" rows="4" placeholder="58.2; 1:10.5"></textarea>
+                     </div>
+                     <button type="button" class="btn btn-info batch-cut-btn" data-clip-type="short" data-textarea-id="manual_timestamps_short"><i class="bi bi-phone-fill"></i> Generate Short Batch Clips</button>
+                     <span class="batch-cut-status ms-3 text-body-secondary small" data-clip-type="short"></span>
+                 </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- Action Buttons (Delete) --- (Kept) #}
+    <div class="mt-4">
+         <form action="{{ url_for('delete_videos') }}" method="POST" class="d-inline-block">
+             {{ csrf_token() }} {# CSRF token inside form #}
+             <input type="hidden" name="selected_videos" value="{{ video.id }}">
+             <button type="submit" class="btn btn-outline-danger" id="deleteSingleVideoButton">
+                 <i class="bi bi-trash"></i> Delete This Video Job
+             </button>
+         </form>
+    </div>
+
+    {% else %} {# If video object not found #}
+    <div class="alert alert-danger" role="alert">
+       <h4 class="alert-heading">Error</h4>
+       Video details not found for ID {{ video_id }}. It may have been deleted.
+    </div>
+    <a href="{{ url_for('index') }}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Back to List</a>
+    {% endif %}
+
+</div> {# End container #}
+{% endblock %}
+
+{% block scripts %}
+{# JS included via base.html #}
+{% endblock %}
+{# --- END OF FILE: templates/video_details.html --- #}
